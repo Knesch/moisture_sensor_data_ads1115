@@ -9,17 +9,19 @@ from time import sleep
 # local module imports
 from blinker import signal
 import time
-import board
-import busio
 import gv  # Get access to SIP's settings
 import os
 
 try:
+    import board
+    import busio
     import adafruit_ads1x15.ads1115 as ADS
     from adafruit_ads1x15.analog_in import AnalogIn
 except ImportError:
     print("Trying to install missing Python module adafruit-circuitpython-ads1x15")
     os.system("python3 -m pip install adafruit-circuitpython-ads1x15")
+    import board
+    import busio
     import adafruit_ads1x15.ads1115 as ADS
     from adafruit_ads1x15.analog_in import AnalogIn
 
