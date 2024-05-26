@@ -62,7 +62,7 @@ def LEtoBE(c):
         c = c - 2 ** 16
     return c
 
-def read_channel(self, arg):
+def read_channel():
     bus = SMBus(I2C_BUS)
     bus.open(I2C_BUS)
     bus.write_byte(RESET_ADDRESS, RESET_COMMAND)
