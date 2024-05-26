@@ -1,7 +1,2 @@
-# moisture_sensor_data_ads1115
-Plugin for Moisture sensor data from ads1115 ADC chip
-
-## Prerequsites
-This library depends on 
-'pip3 install adafruit-circuitpython-ads1x15'
-
+# moisture_sensor_data_ads1115_smt50
+Plugin for Moisture sensor data "Truebner SMT 50" connected to a ads1115 ADC chip

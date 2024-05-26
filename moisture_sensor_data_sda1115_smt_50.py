@@ -11,19 +11,17 @@ from blinker import signal
 import time
 import gv  # Get access to SIP's settings
 import os
+from smbus2 import SMBus
 
-try:
-    import board
-    import busio
-    import adafruit_ads1x15.ads1115 as ADS
-    from adafruit_ads1x15.analog_in import AnalogIn
-except ImportError:
-    print("Trying to install missing Python module adafruit-circuitpython-ads1x15")
-    os.system("python3 -m pip install adafruit-circuitpython-ads1x15")
-    import board
-    import busio
-    import adafruit_ads1x15.ads1115 as ADS
-    from adafruit_ads1x15.analog_in import AnalogIn
+# ADS1115 + hardware constants
+I2C_BUS = 1
+DEVICE_ADDRESS = 0x48
+POINTER_CONVERSION = 0x0
+POINTER_CONFIGURATION = 0x1
+
+RESET_ADDRESS = 0b0000000
+RESET_COMMAND = 0b00000110
+# END ADS1115 + hardware constants
 
 SENSOR_DATA_PATH = "./static/data/moisture_sensor_data"
 SENSOR_NAME = "sda1115_smt_50"
@@ -44,22 +42,49 @@ def create_sensor_data_file(new_file):
     with open(new_file, "w") as f:
         f.write("x,y\n")
 
-def read_channel():
-    # Create the I2C bus
-    i2c = busio.I2C(board.SCL, board.SDA)
 
-    # Create the ADC object using the I2C bus
-    ads = ADS.ADS1115(i2c)
 
-    # Create single-ended input on channel 0
-    chan = AnalogIn(ads, ADS.P0)
-    return chan.voltage
+
+#ADS1115 functions
+def prepareLEconf(BEconf):
+    '''Prepare LittleEndian Byte pattern from BigEndian configuration string, with separators.'''
+    c = int(BEconf.replace('-', ''), base=2)
+    return swap2Bytes(c)
+
+def swap2Bytes(c):
+    '''Revert Byte order for Words (2 Bytes, 16 Bit).'''
+    return (c >> 8 | c << 8) & 0xFFFF
+
+def LEtoBE(c):
+    '''Little Endian to BigEndian conversion for signed 2Byte integers (2 complement).'''
+    c = swap2Bytes(c)
+    if (c >= 2 ** 15):
+        c = c - 2 ** 16
+    return c
+
+def read_channel(self, arg):
+    bus = SMBus(I2C_BUS)
+    bus.open(I2C_BUS)
+    bus.write_byte(RESET_ADDRESS, RESET_COMMAND)
+    # compare with configuration settings from ADS115 datasheet
+    # start single conversion - AIN0/GND - 4.096V - single shot - 8SPS - X
+    # - X - X - disable comparator
+    conf = prepareLEconf('1-100-001-1-000-0-0-0-11')
+    bus.write_word_data(DEVICE_ADDRESS, POINTER_CONFIGURATION, conf)
+    # long enough to be safe that data acquisition (conversion) has completed
+    time.sleep(1)
+    value_raw = bus.read_word_data(DEVICE_ADDRESS, POINTER_CONVERSION)
+    bus.close()
+    value = LEtoBE(value_raw)
+    voltage = value / pow(2,15) * 4.096
+    return voltage
+#END ADS1115 functions
 
 def read_loop():
     while True:
         ts_secs = int(gv.now)
         currentVoltage = read_channel()
-        percent = currentVoltage / MAX_VOLTAGE * 100 / 2
+        percent = currentVoltage / MAX_VOLTAGE * 100 / 2 
         percent = round(percent)
         msd_signal.send(
             "reading", data={"sensor": SENSOR_NAME, "timestamp": ts_secs, "value": percent}
