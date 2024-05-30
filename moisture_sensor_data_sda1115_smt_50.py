@@ -67,7 +67,6 @@ def LEtoBE(c):
 
 def read_channel():
     bus = SMBus(I2C_BUS)
-    bus.open(I2C_BUS)
     bus.write_byte(RESET_ADDRESS, RESET_COMMAND)
     # compare with configuration settings from ADS115 datasheet
     # start single conversion - AIN0/GND - 4.096V - single shot - 8SPS - X
