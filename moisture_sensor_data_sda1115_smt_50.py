@@ -66,20 +66,20 @@ def LEtoBE(c):
     return c
 
 def read_channel():
-    bus = SMBus(I2C_BUS)
-    bus.write_byte(RESET_ADDRESS, RESET_COMMAND)
-    # compare with configuration settings from ADS115 datasheet
-    # start single conversion - AIN0/GND - 4.096V - single shot - 8SPS - X
-    # - X - X - disable comparator
-    conf = prepareLEconf('1-100-001-1-000-0-0-0-11')
-    bus.write_word_data(SENSOR_DEVICE_ADDRESS, POINTER_CONFIGURATION, conf)
-    # long enough to be safe that data acquisition (conversion) has completed
-    time.sleep(1)
-    value_raw = bus.read_word_data(SENSOR_DEVICE_ADDRESS, POINTER_CONVERSION)
-    bus.close()
-    value = LEtoBE(value_raw)
-    voltage = value / pow(2,15) * 4.096
-    return voltage
+    with SMBus(I2C_BUS) as bus:
+        bus.write_byte(RESET_ADDRESS, RESET_COMMAND)
+        # compare with configuration settings from ADS115 datasheet
+        # start single conversion - AIN0/GND - 4.096V - single shot - 8SPS - X
+        # - X - X - disable comparator
+        conf = prepareLEconf('1-100-001-1-000-0-0-0-11')
+        bus.write_word_data(SENSOR_DEVICE_ADDRESS, POINTER_CONFIGURATION, conf)
+        # long enough to be safe that data acquisition (conversion) has completed
+        time.sleep(1)
+        value_raw = bus.read_word_data(SENSOR_DEVICE_ADDRESS, POINTER_CONVERSION)
+        value = LEtoBE(value_raw)
+        voltage = value / pow(2,15) * 4.096
+        return voltage
+
 #END ADS1115 functions
 
 def read_loop():
