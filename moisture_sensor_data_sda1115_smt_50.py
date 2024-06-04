@@ -82,18 +82,29 @@ def read_channel():
 
 #END ADS1115 functions
 
+def readSensor():
+    currentVoltage = read_channel()
+    percent = currentVoltage / SENSOR_MAX_VOLTAGE * 100 / 2
+    percent = round(percent)
+    return percent
+
+def sendSensorData(sensorName, percent):
+    ts_secs = int(gv.now)
+    msd_signal.send(
+        "reading", data={"sensor": sensorName, "timestamp": ts_secs, "value": percent}
+    )
+
+def writeSensorDataHistory(sensorName, percent):
+    ts_secs = int(gv.now)
+    sensor_file = f"{SENSOR_DATA_PATH}/{sensorName}"
+    with open(sensor_file, "a") as f:
+        f.write(f"{ts_secs * 1000},{percent}\n")
+
 def read_loop():
     while True:
-        ts_secs = int(gv.now)
-        currentVoltage = read_channel()
-        percent = currentVoltage / SENSOR_MAX_VOLTAGE * 100 / 2
-        percent = round(percent)
-        msd_signal.send(
-            "reading", data={"sensor": SENSOR_NAME, "timestamp": ts_secs, "value": percent}
-        )
-        sensor_file = f"{SENSOR_DATA_PATH}/{SENSOR_NAME}"
-        with open(sensor_file, "a") as f:
-            f.write(f"{ts_secs * 1000},{percent}\n")
+        percent = readSensor()
+        sendSensorData(SENSOR_NAME, percent)
+        writeSensorDataHistory(SENSOR_NAME, percent)
         time.sleep(60 * SENSOR_READ_INTERVALL_MINUTES)
 
 moisture_sensor_data_init()
