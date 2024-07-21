@@ -108,6 +108,7 @@ def getSensorHistoryFile(sensorName):
     return f"{SENSOR_DATA_PATH}/{sensorName}"
 
 def truncate_data_file(sensorName):
+    global last_truncate
     # Only perform truncation once a week to limit IO?
     if last_truncate + (86400 * 7) > gv.now:
         return
