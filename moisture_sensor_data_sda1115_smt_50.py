@@ -3,6 +3,7 @@
 
 # standard library imports
 import json  # for working with data file
+import tempfile
 from threading import Thread
 from time import sleep
 
@@ -32,8 +33,10 @@ SENSOR_MAX_VOLTAGE = 3
 SENSOR_DRIEST = 0
 SENSOR_WETTEST = 50
 SENSOR_CHANNEL = 0
+RETENTION_IN_DAYS = 28
 
 msd_signal = signal("moisture_sensor_data")
+last_truncate = 0
 
 def moisture_sensor_data_init():
     if not os.path.isdir(SENSOR_DATA_PATH):
@@ -96,9 +99,45 @@ def sendSensorData(sensorName, percent):
 
 def writeSensorDataHistory(sensorName, percent):
     ts_secs = int(gv.now)
-    sensor_file = f"{SENSOR_DATA_PATH}/{sensorName}"
+    sensor_file = getSensorHistoryFile(sensorName)
     with open(sensor_file, "a") as f:
         f.write(f"{ts_secs * 1000},{percent}\n")
+    truncate_data_file(sensorName)
+
+def getSensorHistoryFile(sensorName):
+    return f"{SENSOR_DATA_PATH}/{sensorName}"
+
+def truncate_data_file(sensorName):
+    # Only perform truncation once a week to limit IO?
+    if last_truncate + (86400 * 7) > gv.now:
+        return
+
+    last_truncate = int(gv.now)
+
+    sensor_file = getSensorHistoryFile(sensorName)
+    sensor_file_tmp = f"{tempfile.gettempdir()}/{sensorName}"
+
+    # Convert days/seconds to miliseconds
+    retention = RETENTION_IN_DAYS * 86400 * 1000
+    now = int(gv.now) * 1000
+
+    with open(sensor_file, "r") as input:
+        with open(sensor_file_tmp, "w") as output:
+            # Copy headers straight to output
+            output.write(input.readline())
+
+            for line in input:
+                fields = line.split(",")
+                # timestamp can be float or int
+                if int(float(fields[0])) + retention > now:
+                    output.write(line)
+
+    try:
+        # Best option as new sensor data my be being written to file
+        os.replace(sensor_file_tmp, sensor_file)
+    except OSError as e:
+        print(f"Cannot replace {sensor_file}", e)
+        os.remove(sensor_file_tmp)
 
 def read_loop():
     while True:
@@ -106,6 +145,8 @@ def read_loop():
         sendSensorData(SENSOR_NAME, percent)
         writeSensorDataHistory(SENSOR_NAME, percent)
         time.sleep(60 * SENSOR_READ_INTERVALL_MINUTES)
+
+
 
 moisture_sensor_data_init()
 
